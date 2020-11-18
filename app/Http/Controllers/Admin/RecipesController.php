@@ -9,7 +9,6 @@ use App\Http\Requests\UpdateRecipeRequest;
 use App\Models\Ingredient;
 use App\Models\Recipe;
 use Gate;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class RecipesController extends Controller
@@ -27,15 +26,19 @@ class RecipesController extends Controller
     {
         abort_if(Gate::denies('recipe_create'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $ingredients = Ingredient::all()->pluck('name', 'id');
-
-        return view('admin.recipes.create', compact('ingredients'));
+        return view('admin.recipes.create', [
+            'ingredients' => Ingredient::get(),
+        ]);
     }
 
     public function store(StoreRecipeRequest $request)
     {
-        $recipe = Recipe::create($request->all());
-        $recipe->ingredients()->sync($request->input('ingredients', []));
+        $data = $request->validated();
+
+        /** @var Recipe $recipe */
+        $recipe = Recipe::create($data);
+
+        $recipe->ingredients()->sync($this->mapIngredients($data['ingredients']));
 
         return redirect()->route('admin.recipes.index');
     }
@@ -44,17 +47,25 @@ class RecipesController extends Controller
     {
         abort_if(Gate::denies('recipe_edit'), Response::HTTP_FORBIDDEN, '403 Forbidden');
 
-        $ingredients = Ingredient::all()->pluck('name', 'id');
-
         $recipe->load('ingredients');
 
-        return view('admin.recipes.edit', compact('ingredients', 'recipe'));
+        $ingredients = Ingredient::get()->map(function($ingredient) use ($recipe) {
+            $ingredient->value = data_get($recipe->ingredients->firstWhere('id', $ingredient->id), 'pivot.amount') ?? null;
+            return $ingredient;
+        });
+
+        return view('admin.recipes.edit', [
+            'ingredients' => $ingredients,
+            'recipe' => $recipe,
+        ]);
     }
 
     public function update(UpdateRecipeRequest $request, Recipe $recipe)
     {
-        $recipe->update($request->all());
-        $recipe->ingredients()->sync($request->input('ingredients', []));
+        $data = $request->validated();
+
+        $recipe->update($data);
+        $recipe->ingredients()->sync($this->mapIngredients($data['ingredients']));
 
         return redirect()->route('admin.recipes.index');
     }
@@ -82,5 +93,12 @@ class RecipesController extends Controller
         Recipe::whereIn('id', request('ids'))->delete();
 
         return response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    private function mapIngredients($ingredients)
+    {
+        return collect($ingredients)->map(function ($i) {
+            return ['amount' => $i];
+        });
     }
 }

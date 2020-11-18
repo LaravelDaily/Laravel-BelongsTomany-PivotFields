@@ -37,7 +37,7 @@
                         </th>
                         <td>
                             @foreach($recipe->ingredients as $key => $ingredients)
-                                <span class="label label-info">{{ $ingredients->name }}</span>
+                                <div class="label label-info">{{ $ingredients->name }} ({{ $ingredients->pivot->amount }})</div>
                             @endforeach
                         </td>
                     </tr>

@@ -22,7 +22,7 @@ class StoreRecipeRequest extends FormRequest
                 'required',
             ],
             'ingredients.*' => [
-                'integer',
+                'string',
             ],
             'ingredients'   => [
                 'required',
